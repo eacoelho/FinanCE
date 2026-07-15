@@ -1,0 +1,6 @@
+{
+  "name": "finanCE",
+  "description": "Aplicativo de Controle de Receitas e Despesas Mensais com Conciliação Bancária (OFX/Excel).",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
