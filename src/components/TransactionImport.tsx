@@ -18,9 +18,10 @@ interface TransactionImportProps {
   categories: Categoria[];
   transactions: Lancamento[];
   onRefresh: () => void;
+  userId?: string;
 }
 
-export default function TransactionImport({ accounts, categories, transactions, onRefresh }: TransactionImportProps) {
+export default function TransactionImport({ accounts, categories, transactions, onRefresh, userId = 'usr-demo' }: TransactionImportProps) {
   // File upload state
   const [dragActive, setDragActive] = useState(false);
   const [parsingError, setParsingError] = useState('');
@@ -259,7 +260,7 @@ export default function TransactionImport({ accounts, categories, transactions, 
       }));
 
       // PERSIST IN BATCH
-      await dbService.createBulkTransactions('usr-demo', dbEntries);
+      await dbService.createBulkTransactions(userId, dbEntries);
       
       alert(`${dbEntries.length} lançamentos importados e conciliados com sucesso!`);
       setImportedList([]);
@@ -286,7 +287,7 @@ export default function TransactionImport({ accounts, categories, transactions, 
       const signedVal = txFluxo === 'RECEITA' ? Math.abs(valorNum) : -Math.abs(valorNum);
 
       if (editingTxId) {
-        await dbService.updateTransaction('usr-demo', editingTxId, {
+        await dbService.updateTransaction(userId, editingTxId, {
           idConta: txConta,
           idCategoria: txCategoria || undefined,
           dataPgto: txData,
@@ -302,7 +303,7 @@ export default function TransactionImport({ accounts, categories, transactions, 
             totalInstallments: txNumParcelas,
             firstDueDate: new Date(txData + 'T12:00:00'), // Avoid timezone offset errors
             description: txDescricao,
-            userId: 'usr-demo',
+            userId: userId,
             accountId: txConta,
             categoryId: txCategoria || '',
           });
@@ -316,7 +317,7 @@ export default function TransactionImport({ accounts, categories, transactions, 
             descricao: inst.description
           }));
 
-          await dbService.createBulkTransactions('usr-demo', dbEntries);
+          await dbService.createBulkTransactions(userId, dbEntries);
           alert(`Compra parcelada de ${txNumParcelas}x registrada com sucesso!`);
         } else if (txIsRecorrente) {
           const dbEntries = [];
@@ -336,10 +337,10 @@ export default function TransactionImport({ accounts, categories, transactions, 
             });
           }
 
-          await dbService.createBulkTransactions('usr-demo', dbEntries);
+          await dbService.createBulkTransactions(userId, dbEntries);
           alert(`Lançamentos recorrentes (${txNumRecorrencias}x) registrados com sucesso!`);
         } else {
-          await dbService.createTransaction('usr-demo', {
+          await dbService.createTransaction(userId, {
             idConta: txConta,
             idCategoria: txCategoria || undefined,
             dataPgto: txData,
@@ -381,7 +382,7 @@ export default function TransactionImport({ accounts, categories, transactions, 
       setLoading(true);
       if (editingTransferId) {
         await dbService.updateTransfer(
-          'usr-demo',
+          userId,
           editingTransferId,
           transOrigem,
           transDestino,
@@ -392,7 +393,7 @@ export default function TransactionImport({ accounts, categories, transactions, 
         alert('Transferência atualizada com sucesso!');
       } else {
         await dbService.createTransfer(
-          'usr-demo',
+          userId,
           transOrigem,
           transDestino,
           parseFloat(transValor),
@@ -416,7 +417,7 @@ export default function TransactionImport({ accounts, categories, transactions, 
   const handleDeleteTransaction = async (idLancamento: string) => {
     if (!confirm('Deseja realmente excluir este lançamento?')) return;
     try {
-      await dbService.deleteTransaction('usr-demo', idLancamento);
+      await dbService.deleteTransaction(userId, idLancamento);
       onRefresh();
     } catch (err) {
       console.error(err);

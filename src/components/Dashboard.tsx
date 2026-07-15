@@ -11,9 +11,10 @@ interface DashboardProps {
   accounts: Conta[];
   categories: Categoria[];
   transactions: Lancamento[];
+  userId?: string;
 }
 
-export default function Dashboard({ accounts, categories, transactions }: DashboardProps) {
+export default function Dashboard({ accounts, categories, transactions, userId = 'usr-demo' }: DashboardProps) {
   const [selectedMonth, setSelectedMonth] = useState<string>(() => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -77,7 +78,7 @@ export default function Dashboard({ accounts, categories, transactions }: Dashbo
     // Default "Outros" category if not found
     const fallbackCategory: Categoria = {
       idCategoria: 'cat-outros',
-      idUsuario: 'usr-demo',
+      idUsuario: userId,
       nome: 'Outros / Sem Categoria',
       tipo: 'DESPESA',
       cor: '#64748b'

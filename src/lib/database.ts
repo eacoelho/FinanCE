@@ -226,6 +226,67 @@ export const dbService = {
     };
   },
 
+  // --- AUTENTICAÇÃO SUPABASE ---
+  async getSessionUser() {
+    if (!supabase) return null;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      return session?.user || null;
+    } catch (e) {
+      console.error('Erro ao buscar sessão:', e);
+      return null;
+    }
+  },
+
+  async signUp(email: string, pass: string, name: string) {
+    if (!supabase) throw new Error('Supabase não inicializado.');
+    
+    // 1. Cadastra o usuário no Supabase Auth
+    const { data: authData, error: authErr } = await supabase.auth.signUp({
+      email,
+      password: pass,
+      options: {
+        data: {
+          nome: name
+        }
+      }
+    });
+    if (authErr) throw authErr;
+    if (!authData.user) throw new Error('Falha no cadastro do usuário.');
+
+    // 2. Insere na tabela pública de usuários para sincronização
+    try {
+      await supabase
+        .from('usuarios')
+        .upsert({
+          idUsuario: authData.user.id,
+          nome: name,
+          email: email
+        });
+    } catch (dbErr) {
+      // Ignora erro se o trigger automático do PostgreSQL (handle_new_user) já realizou a inserção
+      console.log('Aviso ou trigger executado ao sincronizar usuário público:', dbErr);
+    }
+    
+    return authData.user;
+  },
+
+  async signIn(email: string, pass: string) {
+    if (!supabase) throw new Error('Supabase não inicializado.');
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password: pass
+    });
+    if (error) throw error;
+    return data.user;
+  },
+
+  async signOut() {
+    if (supabase) {
+      await supabase.auth.signOut();
+    }
+  },
+
   // --- ACCOUNTS (CONTAS) ---
   async getAccounts(idUsuario: string): Promise<Conta[]> {
     if (supabase) {

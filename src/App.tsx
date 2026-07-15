@@ -12,7 +12,7 @@ import AccountsCategories from './components/AccountsCategories';
 import SqlViewer from './components/SqlViewer';
 import {
   TrendingUp, Wallet, Tag, BarChart3, Database, Key, Check, AlertCircle,
-  HelpCircle, RefreshCw, Layers, X
+  HelpCircle, RefreshCw, Layers, X, Mail, Lock, User, LogIn
 } from 'lucide-react';
 
 export default function App() {
@@ -30,20 +30,47 @@ export default function App() {
   const [inputKey, setInputKey] = useState(() => localStorage.getItem('finance_override_supabase_key') || '');
   const [isLiveConnected, setIsLiveConnected] = useState(false);
 
+  // Authentication State Variables
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [authMode, setAuthMode] = useState<'SIGNIN' | 'SIGNUP'>('SIGNIN');
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authName, setAuthName] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
+
   // Sync state from Database Service
   const loadData = async () => {
     try {
       setLoading(true);
-      // We operate on a 'usr-demo' account for full sandbox capability.
-      // In a real OAuth flow (which we prepared SQL triggers for), this is auth.uid()
-      const accList = await dbService.getAccounts('usr-demo');
-      const catList = await dbService.getCategories('usr-demo');
-      const txList = await dbService.getTransactions('usr-demo');
+      setAuthError('');
+      
+      const live = dbService.isLive();
+      setIsLiveConnected(live);
+
+      let userId = 'usr-demo';
+      if (live) {
+        const user = await dbService.getSessionUser();
+        if (user) {
+          setCurrentUser(user);
+          userId = user.id;
+        } else {
+          setCurrentUser(null);
+          setLoading(false);
+          return; // Stop loading data if not authenticated on Supabase Live
+        }
+      } else {
+        setCurrentUser(null);
+      }
+
+      // Fetch lists with authenticated UUID or local fallback
+      const accList = await dbService.getAccounts(userId);
+      const catList = await dbService.getCategories(userId);
+      const txList = await dbService.getTransactions(userId);
 
       setAccounts(accList);
       setCategories(catList);
       setTransactions(txList);
-      setIsLiveConnected(dbService.isLive());
     } catch (error) {
       console.error('Falha ao carregar dados:', error);
     } finally {
@@ -54,6 +81,41 @@ export default function App() {
   useEffect(() => {
     loadData();
   }, []);
+
+  const handleAuthSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError('');
+    setAuthLoading(true);
+    try {
+      if (authMode === 'SIGNIN') {
+        await dbService.signIn(authEmail, authPassword);
+      } else {
+        if (!authName.trim()) {
+          throw new Error('Por favor, informe seu nome.');
+        }
+        await dbService.signUp(authEmail, authPassword, authName.trim());
+      }
+      // Reload page data upon successful auth
+      await loadData();
+    } catch (err: any) {
+      console.error(err);
+      setAuthError(err.message || 'Ocorreu um erro ao realizar a autenticação.');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    if (confirm('Deseja realmente sair da sua conta Supabase?')) {
+      try {
+        await dbService.signOut();
+        setCurrentUser(null);
+        window.location.reload();
+      } catch (err) {
+        console.error('Erro ao deslogar:', err);
+      }
+    }
+  };
 
   // Set up or clear custom Supabase overrides
   const handleSaveCustomSupabase = (e: React.FormEvent) => {
@@ -114,11 +176,24 @@ export default function App() {
               <Key className="w-3.5 h-3.5 text-slate-400 ml-1" />
             </div>
 
+            {isLiveConnected && currentUser && (
+              <div className="flex items-center gap-2.5 bg-indigo-50 border border-indigo-100 rounded-full px-3.5 py-1.5 text-xs font-semibold text-indigo-700 shadow-xs">
+                <span>Olá, <b className="text-indigo-900">{currentUser.user_metadata?.nome || currentUser.email}</b></span>
+                <button
+                  onClick={handleLogout}
+                  className="text-red-500 hover:text-red-700 font-bold hover:underline cursor-pointer"
+                  title="Sair da conta"
+                >
+                  Sair
+                </button>
+              </div>
+            )}
+
             {/* Reset Seed Button */}
             {!isLiveConnected && (
               <button
                 onClick={handleResetDatabase}
-                className="text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 text-[11px] font-semibold py-1.5 px-3.5 rounded-full transition-all border border-slate-200 shadow-xs"
+                className="text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 text-[11px] font-semibold py-1.5 px-3.5 rounded-full transition-all border border-slate-200 shadow-xs cursor-pointer"
                 title="Wipes local records and restores rich seed defaults"
                 id="reset-demo-btn"
               >
@@ -182,6 +257,131 @@ export default function App() {
             <RefreshCw className="w-8 h-8 text-emerald-600 animate-spin" />
             <p className="text-xs text-slate-500 font-semibold tracking-wider uppercase">Sincronizando Banco de Dados...</p>
           </div>
+        ) : isLiveConnected && !currentUser ? (
+          // AUTHENTICATION INTERFACE FOR SUPABASE LIVE
+          <div className="max-w-md mx-auto my-12 animate-fade-in">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden">
+              {/* Card Header */}
+              <div className="bg-gradient-to-r from-indigo-50 to-indigo-100 p-6 border-b border-slate-100 flex flex-col items-center text-center">
+                <div className="w-12 h-12 bg-indigo-600 text-white rounded-2xl flex items-center justify-center mb-3 shadow-md shadow-indigo-600/20">
+                  <Lock className="w-6 h-6" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-850">Acesso ao Banco de Dados</h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  Este projeto está configurado em tempo real com regras de segurança de <b>Row Level Security (RLS)</b> no Supabase.
+                </p>
+              </div>
+
+              <div className="p-6 space-y-4">
+                {/* Info Note */}
+                <div className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-3 text-[11px] text-indigo-700 leading-relaxed">
+                  🔒 Cada usuário possui isolamento completo de seus lançamentos, contas e categorias diretamente na tabela PostgreSQL do Supabase.
+                </div>
+
+                {authError && (
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-3 flex items-start gap-2.5 text-red-800 text-xs">
+                    <AlertCircle className="w-4.5 h-4.5 text-red-600 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold">Falha na Autenticação:</span> {authError}
+                    </div>
+                  </div>
+                )}
+
+                <form onSubmit={handleAuthSubmit} className="space-y-4">
+                  {authMode === 'SIGNUP' && (
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1">Seu Nome</label>
+                      <div className="relative">
+                        <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <input
+                          type="text"
+                          required
+                          value={authName}
+                          onChange={(e) => setAuthName(e.target.value)}
+                          placeholder="Ex: João Silva"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-3.5 py-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-sans font-medium"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">E-mail</label>
+                    <div className="relative">
+                      <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input
+                        type="email"
+                        required
+                        value={authEmail}
+                        onChange={(e) => setAuthEmail(e.target.value)}
+                        placeholder="nome@exemplo.com"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-3.5 py-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-sans font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Senha</label>
+                    <div className="relative">
+                      <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input
+                        type="password"
+                        required
+                        minLength={6}
+                        value={authPassword}
+                        onChange={(e) => setAuthPassword(e.target.value)}
+                        placeholder="Mínimo 6 caracteres"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-3.5 py-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-sans font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={authLoading}
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white text-xs font-bold py-2.5 rounded-xl transition-all shadow-md shadow-indigo-600/15 flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    {authLoading ? (
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <LogIn className="w-4 h-4" />
+                    )}
+                    {authMode === 'SIGNIN' ? 'Entrar no Banco de Dados' : 'Registrar Nova Conta'}
+                  </button>
+                </form>
+
+                <div className="text-center pt-2">
+                  <button
+                    onClick={() => {
+                      setAuthMode(authMode === 'SIGNIN' ? 'SIGNUP' : 'SIGNIN');
+                      setAuthError('');
+                    }}
+                    className="text-xs text-indigo-600 font-bold hover:underline"
+                  >
+                    {authMode === 'SIGNIN'
+                      ? 'Não tem uma conta? Cadastre-se aqui'
+                      : 'Já tem uma conta? Faça login aqui'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Back to Sandbox option */}
+              <div className="bg-slate-50 px-6 py-4 border-t border-slate-150 flex items-center justify-between">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Deseja testar sem conta?</span>
+                <button
+                  onClick={() => {
+                    localStorage.removeItem('finance_override_supabase_url');
+                    localStorage.removeItem('finance_override_supabase_key');
+                    alert('Retornando ao ambiente demonstrativo local (Sandbox).');
+                    window.location.reload();
+                  }}
+                  className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
+                >
+                  Modo Demonstrativo (Local) →
+                </button>
+              </div>
+            </div>
+          </div>
         ) : (
           <>
             {/* Show local sandbox help card if running locally */}
@@ -200,7 +400,7 @@ export default function App() {
                 </div>
                 <button
                   onClick={() => setShowConfigModal(true)}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-2 px-4 rounded-xl transition-all self-end md:self-auto shrink-0 shadow-sm"
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-2 px-4 rounded-xl transition-all self-end md:self-auto shrink-0 shadow-sm cursor-pointer"
                   id="header-connect-supabase-btn"
                 >
                   Conectar Supabase
@@ -214,6 +414,7 @@ export default function App() {
                 accounts={accounts}
                 categories={categories}
                 transactions={transactions}
+                userId={currentUser ? currentUser.id : 'usr-demo'}
               />
             )}
 
@@ -223,6 +424,7 @@ export default function App() {
                 categories={categories}
                 transactions={transactions}
                 onRefresh={loadData}
+                userId={currentUser ? currentUser.id : 'usr-demo'}
               />
             )}
 
@@ -231,6 +433,7 @@ export default function App() {
                 accounts={accounts}
                 categories={categories}
                 onRefresh={loadData}
+                userId={currentUser ? currentUser.id : 'usr-demo'}
               />
             )}
 

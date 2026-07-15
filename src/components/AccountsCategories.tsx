@@ -12,6 +12,7 @@ interface AccountsCategoriesProps {
   accounts: Conta[];
   categories: Categoria[];
   onRefresh: () => void;
+  userId?: string;
 }
 
 const PRESET_COLORS = [
@@ -27,7 +28,7 @@ const PRESET_COLORS = [
   '#f97316'  // Orange
 ];
 
-export default function AccountsCategories({ accounts, categories, onRefresh }: AccountsCategoriesProps) {
+export default function AccountsCategories({ accounts, categories, onRefresh, userId = 'usr-demo' }: AccountsCategoriesProps) {
   // Account Form State
   const [showAccForm, setShowAccForm] = useState(false);
   const [editingAcc, setEditingAcc] = useState<Conta | null>(null);
@@ -68,9 +69,9 @@ export default function AccountsCategories({ accounts, categories, onRefresh }: 
     try {
       setLoading(true);
       if (editingAcc) {
-        await dbService.updateAccount('usr-demo', editingAcc.idConta, accNome, accInstituicao);
+        await dbService.updateAccount(userId, editingAcc.idConta, accNome, accInstituicao);
       } else {
-        await dbService.createAccount('usr-demo', accNome, accInstituicao, parseFloat(accSaldoInicial) || 0);
+        await dbService.createAccount(userId, accNome, accInstituicao, parseFloat(accSaldoInicial) || 0);
       }
       setShowAccForm(false);
       onRefresh();
@@ -86,7 +87,7 @@ export default function AccountsCategories({ accounts, categories, onRefresh }: 
     if (!confirm('Deseja realmente deletar esta conta? Todos os lançamentos vinculados a ela serão deletados permanentemente.')) return;
     try {
       setLoading(true);
-      await dbService.deleteAccount('usr-demo', idConta);
+      await dbService.deleteAccount(userId, idConta);
       onRefresh();
     } catch (err) {
       console.error(err);
@@ -120,9 +121,9 @@ export default function AccountsCategories({ accounts, categories, onRefresh }: 
     try {
       setLoading(true);
       if (editingCat) {
-        await dbService.updateCategory('usr-demo', editingCat.idCategoria, catNome, catTipo, catCor);
+        await dbService.updateCategory(userId, editingCat.idCategoria, catNome, catTipo, catCor);
       } else {
-        await dbService.createCategory('usr-demo', catNome, catTipo, catCor);
+        await dbService.createCategory(userId, catNome, catTipo, catCor);
       }
       setShowCatForm(false);
       onRefresh();
@@ -138,7 +139,7 @@ export default function AccountsCategories({ accounts, categories, onRefresh }: 
     if (!confirm('Deseja realmente excluir esta categoria? Lançamentos associados ficarão sem categoria.')) return;
     try {
       setLoading(true);
-      await dbService.deleteCategory('usr-demo', idCategoria);
+      await dbService.deleteCategory(userId, idCategoria);
       onRefresh();
     } catch (err) {
       console.error(err);
