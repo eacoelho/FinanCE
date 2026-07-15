@@ -6,9 +6,23 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Conta, Categoria, Lancamento, Usuario } from '../types';
 
-// Load Supabase configuration from environment variables if present
-const SUPABASE_URL = ((import.meta as any).env?.VITE_SUPABASE_URL as string) || '';
-const SUPABASE_ANON_KEY = ((import.meta as any).env?.VITE_SUPABASE_ANON_KEY as string) || '';
+// Load Supabase configuration from environment variables or localStorage override if present
+const getSupabaseCredentials = () => {
+  let url = ((import.meta as any).env?.VITE_SUPABASE_URL as string) || '';
+  let key = ((import.meta as any).env?.VITE_SUPABASE_ANON_KEY as string) || '';
+
+  if (typeof window !== 'undefined') {
+    const overrideUrl = localStorage.getItem('finance_override_supabase_url');
+    const overrideKey = localStorage.getItem('finance_override_supabase_key');
+    if (overrideUrl && overrideKey) {
+      url = overrideUrl;
+      key = overrideKey;
+    }
+  }
+  return { url, key };
+};
+
+const { url: SUPABASE_URL, key: SUPABASE_ANON_KEY } = getSupabaseCredentials();
 
 export let supabase: SupabaseClient | null = null;
 
