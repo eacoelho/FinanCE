@@ -44,4 +44,5 @@ export interface ParsedTransaction {
   valor: number;
   idCategoria?: string;
   ignorar: boolean;
+  isDuplicate?: boolean;
 }

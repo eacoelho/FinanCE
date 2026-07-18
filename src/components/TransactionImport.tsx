@@ -167,10 +167,17 @@ export default function TransactionImport({ accounts, categories, transactions, 
             setParsingError('Nenhum lançamento válido encontrado no arquivo OFX.');
           } else {
             // Apply match intelligence
-            const enriched = parsed.map(tx => ({
-              ...tx,
-              idCategoria: autoMatchCategory(tx.descricao, tx.valor)
-            }));
+            const enriched = parsed.map(tx => {
+              const alreadyExists = transactions.some(
+                existing => existing.dataPgto === tx.data && Math.abs(existing.valor - tx.valor) < 0.01
+              );
+              return {
+                ...tx,
+                idCategoria: autoMatchCategory(tx.descricao, tx.valor),
+                ignorar: alreadyExists ? true : tx.ignorar,
+                isDuplicate: alreadyExists
+              };
+            });
             setImportedList(enriched);
             if (accounts.length > 0) {
               setReconciliationAccount(accounts[0].idConta);
@@ -183,10 +190,17 @@ export default function TransactionImport({ accounts, categories, transactions, 
         if (parsed.length === 0) {
           setParsingError('Nenhum lançamento legível encontrado na planilha Excel.');
         } else {
-          const enriched = parsed.map(tx => ({
-            ...tx,
-            idCategoria: autoMatchCategory(tx.descricao, tx.valor)
-          }));
+          const enriched = parsed.map(tx => {
+            const alreadyExists = transactions.some(
+              existing => existing.dataPgto === tx.data && Math.abs(existing.valor - tx.valor) < 0.01
+            );
+            return {
+              ...tx,
+              idCategoria: autoMatchCategory(tx.descricao, tx.valor),
+              ignorar: alreadyExists ? true : tx.ignorar,
+              isDuplicate: alreadyExists
+            };
+          });
           setImportedList(enriched);
           if (accounts.length > 0) {
             setReconciliationAccount(accounts[0].idConta);
@@ -541,13 +555,20 @@ export default function TransactionImport({ accounts, categories, transactions, 
                       className={`transition-colors duration-100 ${item.ignorar ? 'bg-slate-50/50 text-slate-400 line-through opacity-60' : 'hover:bg-slate-50/30'}`}
                     >
                       <td className="py-3.5 px-4">
-                        <button
-                          onClick={() => handleToggleIgnoreLine(item.id)}
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full border transition-all ${item.ignorar ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-emerald-50 text-emerald-800 border-emerald-200'}`}
-                          title="Clique para alternar inclusão"
-                        >
-                          {item.ignorar ? 'Ignorado' : 'Incluído'}
-                        </button>
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1.5">
+                          <button
+                            onClick={() => handleToggleIgnoreLine(item.id)}
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full border transition-all ${item.ignorar ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-emerald-50 text-emerald-800 border-emerald-200'}`}
+                            title="Clique para alternar inclusão"
+                          >
+                            {item.ignorar ? 'Ignorado' : 'Incluído'}
+                          </button>
+                          {item.isDuplicate && (
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200" title="Lançamento com mesma data de pagamento e valor já cadastrado no sistema">
+                              Já Existe
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="py-3.5 px-4 font-mono text-xs font-semibold">
                         {item.data}
