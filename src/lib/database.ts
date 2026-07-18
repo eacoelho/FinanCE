@@ -26,6 +26,21 @@ const { url: SUPABASE_URL, key: SUPABASE_ANON_KEY } = getSupabaseCredentials();
 
 export let supabase: SupabaseClient | null = null;
 
+export function generateUUID(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    try {
+      return crypto.randomUUID();
+    } catch (e) {
+      // ignore and use fallback
+    }
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 if (SUPABASE_URL && SUPABASE_ANON_KEY) {
   try {
     supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -302,7 +317,7 @@ export const dbService = {
 
   async createAccount(idUsuario: string, nome: string, instituicao = '', saldoInicial = 0): Promise<Conta> {
     const newAcc: Conta = {
-      idConta: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 11),
+      idConta: generateUUID(),
       idUsuario,
       nome,
       instituicao,
@@ -379,7 +394,7 @@ export const dbService = {
 
   async createCategory(idUsuario: string, nome: string, tipo: 'RECEITA' | 'DESPESA', cor = '#64748b'): Promise<Categoria> {
     const newCat: Categoria = {
-      idCategoria: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 11),
+      idCategoria: generateUUID(),
       idUsuario,
       nome,
       tipo,
@@ -460,7 +475,7 @@ export const dbService = {
   async createTransaction(idUsuario: string, t: Omit<Lancamento, 'idLancamento' | 'idUsuario'>): Promise<Lancamento> {
     const newTx: Lancamento = {
       ...t,
-      idLancamento: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 11),
+      idLancamento: generateUUID(),
       idUsuario
     };
 
@@ -490,7 +505,7 @@ export const dbService = {
     data: string,
     descricao: string
   ): Promise<Lancamento[]> {
-    const transferenciaId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 11);
+    const transferenciaId = generateUUID();
     
     const txOrigem: Omit<Lancamento, 'idLancamento' | 'idUsuario'> = {
       idConta: idContaOrigem,
@@ -511,8 +526,8 @@ export const dbService = {
     };
 
     if (supabase) {
-      const dbTxOrigem = { ...txOrigem, idLancamento: crypto.randomUUID(), idUsuario };
-      const dbTxDestino = { ...txDestino, idLancamento: crypto.randomUUID(), idUsuario };
+      const dbTxOrigem = { ...txOrigem, idLancamento: generateUUID(), idUsuario };
+      const dbTxDestino = { ...txDestino, idLancamento: generateUUID(), idUsuario };
       
       const { data: inserted, error } = await supabase
         .from('lancamentos')
@@ -526,12 +541,12 @@ export const dbService = {
     const current = getLocal<Lancamento>('lancamentos', SEED_TRANSACTIONS);
     const newOrigem: Lancamento = {
       ...txOrigem,
-      idLancamento: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 11),
+      idLancamento: generateUUID(),
       idUsuario
     };
     const newDestino: Lancamento = {
       ...txDestino,
-      idLancamento: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 11),
+      idLancamento: generateUUID(),
       idUsuario
     };
 
@@ -545,7 +560,7 @@ export const dbService = {
   async createBulkTransactions(idUsuario: string, list: Omit<Lancamento, 'idLancamento' | 'idUsuario'>[]): Promise<Lancamento[]> {
     const preparedList: Lancamento[] = list.map(item => ({
       ...item,
-      idLancamento: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 11),
+      idLancamento: generateUUID(),
       idUsuario
     }));
 
